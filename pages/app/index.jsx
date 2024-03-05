@@ -1,12 +1,25 @@
-import { Spin, Upload, Input, Button, message } from "antd";
+import {
+  Spin,
+  Upload,
+  Input,
+  Button,
+  message,
+  Dropdown,
+  Space,
+  Menu,
+  Select,
+} from "antd";
+
 import { useEffect, useRef, useState } from "react";
 import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
-import { InboxOutlined } from "@ant-design/icons";
+import { InboxOutlined, ToolTwoTone } from "@ant-design/icons";
 import { fileTypeFromBuffer } from "file-type";
 import { Analytics } from "@vercel/analytics/react";
-import numerify from "numerify/lib/index.cjs";
+import numerify, { options } from "numerify/lib/index.cjs";
 import qs from "query-string";
 import JSZip from "jszip";
+import { FFprobeWorker } from "ffprobe-wasm";
+
 
 const { Dragger } = Upload;
 
@@ -14,17 +27,300 @@ const App = () => {
   const [spinning, setSpinning] = useState(false);
   const [tip, setTip] = useState(false);
   const [inputOptions, setInputOptions] = useState("-i");
-  const [outputOptions, setOutputOptions] = useState("");
+  const [outputVideoOptions, setOutputVideoOptions] = useState("");
+  const [outputAudioOptions, setOutputAudioOptions] = useState("");
+  const [outputContainerOptions, setOutputContainerOptions] = useState("");
   const [files, setFiles] = useState("");
   const [outputFiles, setOutputFiles] = useState([]);
   const [href, setHref] = useState("");
   const [file, setFile] = useState();
   const [fileList, setFileList] = useState([]);
-  const [name, setName] = useState("input.mp4");
-  const [output, setOutput] = useState("output.mp4");
-  const [downloadFileName, setDownloadFileName] = useState("output.mp4");
+  const [name, setName] = useState("eingabe.mp4");
+  const [output, setOutput] = useState("ausgabe");
+  const [downloadFileName, setDownloadFileName] = useState("output");
   const ffmpeg = useRef();
   const currentFSls = useRef([]);
+  const [VideoDisabled, setVideoDisabled] = useState(true);
+  const [AudioDisabled, setAudioDisabled] = useState(true);
+  const [videoCodec, setVideoCodec] = useState([]);
+  const [audioCodec, setAudioCodec] = useState([]);
+
+  const [fileSize, setFileSize] = useState([0]);
+  const [fileDuration, setFileDuration] = useState([0]);
+  const [fileBitrate, setFileBitrate] = useState([0]);
+  const [fileFormat, setFileFormat] = useState([""]);
+
+  const worker = new FFprobeWorker();
+
+  const containers = [
+    {
+      value: ".aac",
+      label: "aac",
+    },
+    {
+      value: ".avi",
+      label: "avi",
+    },
+    {
+      value: ".mkv",
+      label: "mkv",
+    },
+    {
+      value: ".mov",
+      label: "mov",
+    },
+    {
+      value: ".mp3",
+      label: "mp3",
+    },
+    {
+      value: ".mp4",
+      label: "mp4",
+    },
+    {
+      value: ".wav",
+      label: "wav",
+    },
+    {
+      value: ".webm",
+      label: "webm",
+    },
+  ];
+
+  const audiocodecAAC = [
+    {
+      value: " -c:a aac -b:a 320K ",
+      label: "AAC",
+    },
+  ];
+
+  const videocodecAVI = [
+    {
+      value: " -c:v libx264 -crf 18 -pix_fmt yuv420p ",
+      label: "H.264",
+    },
+    {
+      value: " -c:v libx265 -crf 18 -pix_fmt yuv420p ",
+      label: "H.265",
+    },
+    {
+      value: " -c:v prores -profile:v 1 -pix_fmt yuv420p ",
+      label: "ProRes",
+    },
+  ];
+
+  const audiocodecAVI = [
+    {
+      value: " -c:a aac ",
+      label: "AAC",
+    },
+    {
+      value: " -c:a libmp3lame -b:a 320K  ",
+      label: "MP3",
+    },
+    {
+      value: " -c:a pcm_s16le   ",
+      label: "PCM",
+    },
+  ];
+
+  const videocodecMKV = [
+    {
+      value: " -c:v libx264 -crf 18 -pix_fmt yuv420p ",
+      label: "H.264",
+    },
+    {
+      value: " -c:v libx265 -crf 18 -pix_fmt yuv420p ",
+      label: "H.265",
+    },
+  ];
+
+  const audiocodecMKV = [
+    {
+      value: " -c:a aac ",
+      label: "AAC",
+    },
+    {
+      value: " -c:a libmp3lame -b:a 320K  ",
+      label: "MP3",
+    },
+    {
+      value: " -c:a pcm_s16le   ",
+      label: "PCM",
+    },
+  ];
+
+  const videocodecMOV = [
+    {
+      value: " -c:v libx264 -crf 18 -pix_fmt yuv420p ",
+      label: "H.264",
+    },
+    {
+      value: " -c:v libx265 -crf 18 -pix_fmt yuv420p ",
+      label: "H.265",
+    },
+    {
+      value: " -c:v prores -profile:v 1 ",
+      label: "ProRes",
+    },
+  ];
+
+  const audiocodecMOV = [
+    {
+      value: " -c:a aac ",
+      label: "AAC",
+    },
+    {
+      value: " -c:a libmp3lame -b:a 320K  ",
+      label: "MP3",
+    },
+    {
+      value: " -c:a pcm_s16le   ",
+      label: "PCM",
+    },
+  ];
+
+  const audiocodecMP3 = [
+    {
+      value: " -c:a libmp3lame -b:a 320K  ",
+      label: "MP3",
+    },
+  ];
+
+  const videocodecMP4 = [
+    {
+      value: " -c:v libx264 -crf 18 -pix_fmt yuv420p ",
+      label: "H.264",
+    },
+    {
+      value: " -c:v libx265 -pix_fmt yuv420p ",
+      label: "H.265",
+    },
+    {
+      value: " -c:v libvpx-vp9 -crf 18 ",
+      label: "VP9",
+    },
+  ];
+
+  const audiocodecMP4 = [
+    {
+      value: " -c:a aac ",
+      label: "AAC",
+    },
+    {
+      value: " -c:a libmp3lame -b:a 320K  ",
+      label: "MP3",
+    },
+  ];
+
+  const audiocodecWAV = [
+    {
+      value: " -c:a pcm_s16le ",
+      label: "PCM",
+    },
+    {
+      value: " -c:a libmp3lame -b:a 320K  ",
+      label: "MP3",
+    },
+  ];
+
+  const videocodecWEBM = [
+    {
+      value: " -c:v libvpx-vp9 -crf 18 ",
+      label: "VP9",
+    },
+  ];
+
+  const audiocodecWEBM = [
+    {
+      value: " -c:a libopus -b:a 320K ",
+      label: "Opus",
+    },
+  ];
+
+  const handleVideoChange = (value) => {
+    setOutputVideoOptions(value);
+  };
+
+  const handleAudioChange = (value) => {
+    setOutputAudioOptions(value);
+  };
+
+  const handleContainerChange = (value) => {
+    setOutputContainerOptions(value);
+    console.log("outputContainerOptions:" + value);
+
+    switch (value) {
+      case ".aac":
+        setAudioDisabled(false);
+        setVideoDisabled(true);
+        setAudioCodec(audiocodecAAC);
+        break;
+      case ".avi":
+        setAudioDisabled(false);
+        setVideoDisabled(false);
+        setVideoCodec(videocodecAVI);
+        setAudioCodec(audiocodecAVI);
+        break;
+      case ".mkv":
+        setAudioDisabled(false);
+        setVideoDisabled(false);
+        setVideoCodec(videocodecMKV);
+        setAudioCodec(audiocodecMKV);
+        break;
+      case ".mov":
+        setAudioDisabled(false);
+        setVideoDisabled(false);
+        setVideoCodec(videocodecMOV);
+        setAudioCodec(audiocodecMOV);
+        break;
+      case ".mp3":
+        setAudioDisabled(false);
+        setVideoDisabled(true);
+        setAudioCodec(audiocodecMP3);
+        break;
+      case ".mp4":
+        setAudioDisabled(false);
+        setVideoDisabled(false);
+        setVideoCodec(videocodecMP4);
+        setAudioCodec(audiocodecMP4);
+        break;
+      case ".wav":
+        setAudioDisabled(false);
+        setVideoDisabled(true);
+        setAudioCodec(audiocodecMP4);
+        break;
+      case ".webm":
+        setAudioDisabled(false);
+        setVideoDisabled(false);
+        setVideoCodec(videocodecWEBM);
+        setAudioCodec(audiocodecWEBM);
+        break;
+    }
+  };
+
+  const handleMediaInfo = async ()  => {
+    try{
+      const fileInfo = await worker.getFileInfo(file);
+      const fileBitrate = Math.round(fileInfo.format.bit_rate/1000000);
+      const fileSize = Math.round(fileInfo.format.size/1000000);
+      const fileFormat = fileInfo.format.format_long_name;
+      const fileDuration = Math.round(fileInfo.format.duration);
+
+      setFileBitrate(fileBitrate);
+      setFileSize(fileSize);
+      setFileFormat(fileFormat);
+      setFileDuration(fileDuration);
+
+      console.log("duration: " +  fileDuration + " s");      
+      console.log("format_long_name: " + fileFormat);
+      console.log("bit_rate: " +  fileBitrate + " Mbps");      
+      console.log("size: " + fileSize + " MB");
+    }catch{
+      console.log("Metadaten nicht auslesbar!");
+    }
+   
+  };
 
   const handleExec = async () => {
     if (!file) {
@@ -34,7 +330,7 @@ const App = () => {
     setHref("");
     setDownloadFileName("");
     try {
-      setTip("Loading file into browser");
+      setTip("Datei wird in den Browser geladen");
       setSpinning(true);
       for (const fileItem of fileList) {
         ffmpeg.current.FS(
@@ -44,12 +340,14 @@ const App = () => {
         );
       }
       currentFSls.current = ffmpeg.current.FS("readdir", ".");
-      setTip("start executing the command");
+      setTip("Starte die Ausführung");
+
       await ffmpeg.current.run(
-        ...inputOptions.split(" "),
+        inputOptions,
         name,
-        ...outputOptions.split(" "),
-        output
+        ...outputVideoOptions.split(" "),
+        ...outputAudioOptions.split(" "),
+        output + outputContainerOptions
       );
       setSpinning(false);
       const FSls = ffmpeg.current.FS("readdir", ".");
@@ -64,7 +362,7 @@ const App = () => {
         setHref(objectURL);
         setDownloadFileName(outputFiles[0]);
         message.success(
-          "Run successfully, click the download button to download the output file",
+          "Transcoding erfolgreich, Klicke auf dem Download Button",
           10
         );
       } else if (outputFiles.length > 1) {
@@ -78,64 +376,38 @@ const App = () => {
         setHref(objectURL);
         setDownloadFileName("output.zip");
         message.success(
-          "Run successfully, click the download button to download the output file",
+          "Transcoding erfolgreich, Klicke auf dem Download Button",
           10
         );
       } else {
         message.success(
-          "Run successfully, No files are generated, if you want to see the output of the ffmpeg command, please open the console",
+          "Transcoding erfolgreich, keine Datei erstellt! Öffne die Konsole um mehr Informationen zu erhalten.",
           10
         );
       }
     } catch (err) {
       console.error(err);
       message.error(
-        "Failed to run, please check if the command is correct or open the console to view the error details",
+        "Transcoding fehlgeschlagen! Öffne die Konsole um mehr Informationen zu erhalten.",
         10
       );
     }
   };
 
-  const handleGetFiles = async () => {
-    if (!files) {
-      return;
-    }
-    const filenames = files
-      .split(",")
-      .filter((i) => i)
-      .map((i) => i.trim());
-    const outputFilesData = [];
-    for (let filename of filenames) {
-      try {
-        const data = ffmpeg.current.FS("readFile", filename);
-        const type = await fileTypeFromBuffer(data.buffer);
-
-        const objectURL = URL.createObjectURL(
-          new Blob([data.buffer], { type: type.mime })
-        );
-        outputFilesData.push({
-          name: filename,
-          href: objectURL,
-        });
-      } catch (err) {
-        message.error(`${filename} get failed`);
-        console.error(err);
-      }
-    }
-    setOutputFiles(outputFilesData);
-  };
+  
 
   useEffect(() => {
     (async () => {
       ffmpeg.current = createFFmpeg({
         log: true,
-        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+        corePath:
+        "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js",
       });
       ffmpeg.current.setProgress(({ ratio }) => {
         console.log(ratio);
         setTip(numerify(ratio, "0.0%"));
       });
-      setTip("ffmpeg static resource loading...");
+      setTip("ffmpeg static resource geladen...");
       setSpinning(true);
       await ffmpeg.current.load();
       setSpinning(false);
@@ -143,28 +415,50 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const { inputOptions, outputOptions, output } = qs.parse(
-      window.location.search
-    );
+    const {
+      inputOptions,
+      outputVideoOptions,
+      outputAudioOptions,
+      output,
+      outputContainerOptions,
+    } = qs.parse(window.location.search);
     if (inputOptions) {
       setInputOptions(inputOptions);
     }
-    if (outputOptions) {
-      setOutputOptions(outputOptions);
+    if (outputVideoOptions) {
+      setOutputVideoOptions(outputVideoOptions);
+    }
+    if (outputAudioOptions) {
+      setOutputAudioOptions(outputAudioOptions);
     }
     if (output) {
       setOutput(output);
     }
+    if (outputContainerOptions) {
+      setOutputContainerOptions(outputContainerOptions);
+    }
   }, []);
 
   useEffect(() => {
-    // run after inputOptions and outputOptions set from querystring
+    
     setTimeout(() => {
-      let queryString = qs.stringify({ inputOptions, outputOptions, output });
+      let queryString = qs.stringify({
+        inputOptions,
+        outputVideoOptions,
+        outputAudioOptions,
+        output,
+        outputContainerOptions,
+      });
       const newUrl = `${location.origin}${location.pathname}?${queryString}`;
       history.pushState("", "", newUrl);
     });
-  }, [inputOptions, outputOptions, output]);
+  }, [
+    inputOptions,
+    outputVideoOptions,
+    outputAudioOptions,
+    output,
+    outputContainerOptions,
+  ]);
 
   return (
     <div className="page-app">
@@ -172,15 +466,11 @@ const App = () => {
         <Spin spinning={spinning} tip={tip}>
           <div className="component-spin" />
         </Spin>
-      )}
+      )}   
+         
+      <h2 align="center">Das Multimedia Wunderwerkzeug</h2>     
+      <h4>1. Wähle die Ausgangsdatei aus</h4>     
 
-      <h2 align="center">ffmpeg-online</h2>
-
-      <h4>1. Select file</h4>
-      <p style={{ color: "gray" }}>
-        Your files will not be uploaded to the server, only processed in the
-        browser
-      </p>
       <Dragger
         multiple
         beforeUpload={(file, fileList) => {
@@ -189,64 +479,74 @@ const App = () => {
           setName(file.name);
           return false;
         }}
+        
+        onChange={handleMediaInfo}
       >
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
         </p>
-        <p className="ant-upload-text">Click or drag file</p>
+        <p className="ant-upload-text">Klicke oder ziehe die Datei hinein</p>
       </Dragger>
-      <h4>2. Set ffmpeg options</h4>
-      <div className="exec">
-        ffmpeg
-        <Input
-          value={inputOptions}
-          placeholder="please enter input options"
-          onChange={(event) => setInputOptions(event.target.value)}
+
+      <div className="command-text">
+          <h3>Metadaten: </h3>
+          <p>Name: {name}</p>   
+          <p>Dauer: {fileDuration} s</p>  
+          <p>Format: {fileFormat}</p>  
+          <p>Bitrate: {fileBitrate} Mbps</p>
+          <p>Dateigröße: {fileSize} MB</p>        
+      </div>
+
+      <h4>2. Konfiguration der Export-Optionen</h4>
+      <div className="exec">       
+
+        <Select
+          name="selectContainer"
+          placeholder="Container"
+          onChange={handleContainerChange}
+          options={containers}
         />
-        <Input
-          value={name}
-          placeholder="please enter input filename"
-          onChange={(event) => setName(event.target.value)}
+
+        <Select
+          placeholder="Video Codec"
+          onChange={handleVideoChange}
+          disabled={VideoDisabled}
+          options={videoCodec}
         />
-        <Input
-          value={outputOptions}
-          placeholder="please enter output options"
-          onChange={(event) => setOutputOptions(event.target.value)}
+
+        <Select
+          placeholder="Audio Codec"
+          onChange={handleAudioChange}
+          disabled={AudioDisabled}
+          options={audioCodec}
         />
+
         <Input
           value={output}
-          placeholder="Please enter the download file name"
+          placeholder="Gebe den Namen für den Export an"
           onChange={(event) => setOutput(event.target.value)}
         />
+
         <div className="command-text">
-          ffmpeg {inputOptions} {name} {outputOptions} {output}
+          ffmpeg {inputOptions} {name}
+          {outputVideoOptions}
+          {outputAudioOptions}
+          {output}
+          {outputContainerOptions}
         </div>
       </div>
-      <h4>3. Run and get the output file</h4>
+      <h4>3. Transcoding der Ausgangsdatei</h4>
       <Button type="primary" disabled={!Boolean(file)} onClick={handleExec}>
-        run
+        Export starten
       </Button>
       <br />
       <br />
       {href && (
         <a href={href} download={downloadFileName}>
-          download file
+          Datei downloaden
         </a>
       )}
-      <h4>4. Get other file from file system (use , split)</h4>
-      <p style={{ color: "gray" }}>
-        In some scenarios, the output file contains multiple files. At this
-        time, multiple file names can be separated by commas and typed into the
-        input box below.
-      </p>
-      <Input
-        value={files}
-        placeholder="Please enter the download file name"
-        onChange={(event) => setFiles(event.target.value)}
-      />
-      <Button type="primary" disabled={!Boolean(file)} onClick={handleGetFiles}>
-        confirm
-      </Button>
+
       <br />
       <br />
       {outputFiles.map((outputFile, index) => (
@@ -259,44 +559,6 @@ const App = () => {
       ))}
       <br />
       <br />
-      <a
-        href="https://github.com/xiguaxigua/ffmpeg-online"
-        target="_blank"
-        className="github-corner"
-        aria-label="View source on GitHub"
-        rel="noreferrer"
-      >
-        <svg
-          width="80"
-          height="80"
-          viewBox="0 0 250 250"
-          style={{
-            fill: "#151513",
-            color: "#fff",
-            position: "absolute",
-            top: 0,
-            border: 0,
-            right: 0,
-          }}
-          aria-hidden="true"
-        >
-          <path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path>
-          <path
-            d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
-            fill="currentColor"
-            style={{
-              transformOrigin: "130px 106px",
-            }}
-            className="octo-arm"
-          ></path>
-          <path
-            d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
-            fill="currentColor"
-            className="octo-body"
-          ></path>
-        </svg>
-      </a>
-      <Analytics />
     </div>
   );
 };
