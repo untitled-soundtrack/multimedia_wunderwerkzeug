@@ -10,6 +10,7 @@
     "@ffmpeg/core": "^0.11.0",
     "@ffmpeg/ffmpeg": "^0.11.6",
     "@vercel/analytics": "^0.1.6",
+    "a11y-react-emoji": "^1.2.0",
     "antd": "^4.20.7",
     "ffprobe-wasm": "^0.3.1",
     "file-type": "^17.1.2",

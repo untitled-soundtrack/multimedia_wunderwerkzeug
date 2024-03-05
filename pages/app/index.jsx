@@ -19,7 +19,7 @@ import numerify, { options } from "numerify/lib/index.cjs";
 import qs from "query-string";
 import JSZip from "jszip";
 import { FFprobeWorker } from "ffprobe-wasm";
-
+import Emoji from 'a11y-react-emoji'
 
 const { Dragger } = Upload;
 
@@ -43,7 +43,7 @@ const App = () => {
   const [VideoDisabled, setVideoDisabled] = useState(true);
   const [AudioDisabled, setAudioDisabled] = useState(true);
   const [videoCodec, setVideoCodec] = useState([]);
-  const [audioCodec, setAudioCodec] = useState([]);
+  const [audioCodec, setAudioCodec] = useState([]);  
 
   const [fileSize, setFileSize] = useState([0]);
   const [fileDuration, setFileDuration] = useState([0]);
@@ -52,6 +52,7 @@ const App = () => {
 
   const worker = new FFprobeWorker();
 
+  // FFMPEG container & codec variations
   const containers = [
     {
       value: ".aac",
@@ -246,6 +247,7 @@ const App = () => {
     setOutputAudioOptions(value);
   };
 
+  // Output Options depends on the selected container
   const handleContainerChange = (value) => {
     setOutputContainerOptions(value);
     console.log("outputContainerOptions:" + value);
@@ -253,7 +255,7 @@ const App = () => {
     switch (value) {
       case ".aac":
         setAudioDisabled(false);
-        setVideoDisabled(true);
+        setVideoDisabled(true);        
         setAudioCodec(audiocodecAAC);
         break;
       case ".avi":
@@ -288,7 +290,7 @@ const App = () => {
       case ".wav":
         setAudioDisabled(false);
         setVideoDisabled(true);
-        setAudioCodec(audiocodecMP4);
+        setAudioCodec(audiocodecWAV);
         break;
       case ".webm":
         setAudioDisabled(false);
@@ -299,6 +301,7 @@ const App = () => {
     }
   };
 
+  // Experimental media info with ffprobe from input data
   const handleMediaInfo = async ()  => {
     try{
       const fileInfo = await worker.getFileInfo(file);
@@ -318,10 +321,10 @@ const App = () => {
       console.log("size: " + fileSize + " MB");
     }catch{
       console.log("Metadaten nicht auslesbar!");
-    }
-   
+    }   
   };
 
+  // Execution of the transcode commands
   const handleExec = async () => {
     if (!file) {
       return;
@@ -331,7 +334,9 @@ const App = () => {
     setDownloadFileName("");
     try {
       setTip("Datei wird in den Browser geladen");
+      // Starting Spinning icon for loading
       setSpinning(true);
+      // Write the input file(s) to the FFMPEG file system
       for (const fileItem of fileList) {
         ffmpeg.current.FS(
           "writeFile",
@@ -342,6 +347,7 @@ const App = () => {
       currentFSls.current = ffmpeg.current.FS("readdir", ".");
       setTip("Starte die Ausführung");
 
+      // Execute the final FFMPEG command line
       await ffmpeg.current.run(
         inputOptions,
         name,
@@ -349,13 +355,18 @@ const App = () => {
         ...outputAudioOptions.split(" "),
         output + outputContainerOptions
       );
+
+      // End of Spinning icon for loading
       setSpinning(false);
       const FSls = ffmpeg.current.FS("readdir", ".");
       const outputFiles = FSls.filter((i) => !currentFSls.current.includes(i));
+      
+      // Read the outcome file back from the FFMPEG file system
       if (outputFiles.length === 1) {
         const data = ffmpeg.current.FS("readFile", outputFiles[0]);
         const type = await fileTypeFromBuffer(data.buffer);
 
+        //Create the outcome file
         const objectURL = URL.createObjectURL(
           new Blob([data.buffer], { type: type.mime })
         );
@@ -365,21 +376,7 @@ const App = () => {
           "Transcoding erfolgreich, Klicke auf dem Download Button",
           10
         );
-      } else if (outputFiles.length > 1) {
-        var zip = new JSZip();
-        outputFiles.forEach((filleName) => {
-          const data = ffmpeg.current.FS("readFile", filleName);
-          zip.file(filleName, data);
-        });
-        const zipFile = await zip.generateAsync({ type: "blob" });
-        const objectURL = URL.createObjectURL(zipFile);
-        setHref(objectURL);
-        setDownloadFileName("output.zip");
-        message.success(
-          "Transcoding erfolgreich, Klicke auf dem Download Button",
-          10
-        );
-      } else {
+      }else {
         message.success(
           "Transcoding erfolgreich, keine Datei erstellt! Öffne die Konsole um mehr Informationen zu erhalten.",
           10
@@ -392,10 +389,9 @@ const App = () => {
         10
       );
     }
-  };
+  }; 
 
-  
-
+  // Create the FFMPEG instance and load it for transcoding
   useEffect(() => {
     (async () => {
       ffmpeg.current = createFFmpeg({
@@ -414,6 +410,7 @@ const App = () => {
     })();
   }, []);
 
+  // Use always current input & output options 
   useEffect(() => {
     const {
       inputOptions,
@@ -431,6 +428,9 @@ const App = () => {
     if (outputAudioOptions) {
       setOutputAudioOptions(outputAudioOptions);
     }
+    if (outputAudioOptions) {
+      setOutputAudioOptions(outputAudioOptions);
+    }
     if (output) {
       setOutput(output);
     }
@@ -439,8 +439,8 @@ const App = () => {
     }
   }, []);
 
-  useEffect(() => {
-    
+  // Use always current path
+  useEffect(() => {    
     setTimeout(() => {
       let queryString = qs.stringify({
         inputOptions,
@@ -466,9 +466,8 @@ const App = () => {
         <Spin spinning={spinning} tip={tip}>
           <div className="component-spin" />
         </Spin>
-      )}   
-         
-      <h2 align="center">Das Multimedia Wunderwerkzeug</h2>     
+      )}     
+      <h2 align="center"><Emoji symbol="📼" label="vhs" /> Das Multimedia Wunderwerkzeug</h2>     
       <h4>1. Wähle die Ausgangsdatei aus</h4>     
 
       <Dragger
@@ -488,6 +487,7 @@ const App = () => {
         <p className="ant-upload-text">Klicke oder ziehe die Datei hinein</p>
       </Dragger>
 
+      {/* Display metadata for input file*/}
       <div className="command-text">
           <h3>Metadaten: </h3>
           <p>Name: {name}</p>   
@@ -510,15 +510,19 @@ const App = () => {
         <Select
           placeholder="Video Codec"
           onChange={handleVideoChange}
+          notFoundContent={"Video Codec"}                   
           disabled={VideoDisabled}
           options={videoCodec}
+          defaultActiveFirstOption
         />
 
         <Select
           placeholder="Audio Codec"
           onChange={handleAudioChange}
+          notFoundContent={"Audio Codec"}          
           disabled={AudioDisabled}
           options={audioCodec}
+          defaultActiveFirstOption
         />
 
         <Input
@@ -527,6 +531,7 @@ const App = () => {
           onChange={(event) => setOutput(event.target.value)}
         />
 
+        {/* Display final FFMPEG outcome command*/}
         <div className="command-text">
           ffmpeg {inputOptions} {name}
           {outputVideoOptions}
@@ -535,6 +540,7 @@ const App = () => {
           {outputContainerOptions}
         </div>
       </div>
+
       <h4>3. Transcoding der Ausgangsdatei</h4>
       <Button type="primary" disabled={!Boolean(file)} onClick={handleExec}>
         Export starten
@@ -549,6 +555,7 @@ const App = () => {
 
       <br />
       <br />
+      {/* Display download button for the transcoded file */}
       {outputFiles.map((outputFile, index) => (
         <div key={index}>
           <a href={outputFile.href} download={outputFile.name}>
