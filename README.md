@@ -36,4 +36,4 @@ _(Das Transcoding funktioniert derzeit nur bei Videos bis zu einer Auflösung vo
 
 + [FFmpeg.wasm](https://ffmpegwasm.netlify.app/)
 + [ffprobe-wasm](https://www.npmjs.com/package/ffprobe-wasm)
-+ [ffmprovisr](hhttps://amiaopensource.github.io/ffmprovisr/)
++ [ffmprovisr](https://amiaopensource.github.io/ffmprovisr/)
