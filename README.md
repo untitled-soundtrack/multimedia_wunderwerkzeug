@@ -9,7 +9,7 @@ Für das Transcoding können jede Art an Audio- und Videodaten (lokal) geladen w
 
 Metadaten von der eingelesenen Datei werden mittels einem Web Assembly Build dem Medieninfo Tool [ffprobe](https://ffmpeg.org/ffprobe.html) anzeigt. _(Funktioniert leider derzeit nur mit Medien mit dem Container .mov & .mp4)._
 
-![](./demo/mw-metadaten.png){:height="550px" width="550px"}
+![](./demo/mw-metadaten.png)
 
 #### Transcoding
 
@@ -19,7 +19,7 @@ Mit dem Konfigurator kann der gewünschte Export der Mediendatei durchgeführt w
 + Video Codec
 + Audio Codec
 
-![](./demo/mw-transcoding.jpg){:height="550px" width="550px"}
+![](./demo/mw-transcoding.jpg)
 
 Nach Auswahl der gewünschten Optionen wird das FFmpeg Kommando generiert (siehe Screenshot), transcodiert und nach erfolgreichem Export zum Download angeboten.
 
